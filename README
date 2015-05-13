@@ -1,0 +1,45 @@
+To compile:
+
+	$ cd quiz
+	$ cmake .
+	$ VERBOSE=1 make
+
+To clean up:
+
+	$ make quiz-clean
+	
+To run test cases:
+
+	$ build/analysis <input file> [chunk size]
+
+Or
+
+	$ build/analysis_hp <input_file> [num of threads]
+
+
+To check memory usage of this program:
+
+	$ valgrind 	--leak-check=full --log-file=analysis.val <program> <option>
+
+
+Note:
+
+1. The usage of a word tree can reduce RAM consumption as much as possible;
+
+2. If RAM is very limited, use single threa application of "anaylsis" to read
+the content of the input file in an accumulated manner. The chunk size is
+also configurable;
+
+3. If RAM is sufficient the performance can be boosted by reducing the number
+of reads. In theory, multiple threads can be forked to analyse different part
+of the input file in parrallel.
+
+4. However, spawning more number of threads can NOT always guarantee a better
+performance, since each thread would have to build up their own analysis tree
+from scratch instead of taking advantage of the existing one.
+
+For example, for the given test/M1_histories.xml file, 4 threads yield the
+max performance.
+
+TODO: multiple threads generate their statistics independently for different
+section of the given file, they need to be further consolidated.
