@@ -1,4 +1,4 @@
-# BUILD
+# Build
 
 To compile the single-thread implementation (for low mem scenario):
 
@@ -41,7 +41,7 @@ To check memory usage of this program:
 	$ valgrind 	--leak-check=full --log-file=analysis.val <program> <option>
 
 
-# Time VS Space Discussion
+# Discussion
 
 1. The usage of a word tree has reduced RAM consumption and boosted performance significantly;
 
@@ -49,7 +49,7 @@ To check memory usage of this program:
 
 3. If RAM is sufficient, the performance could be further promoted by reducing disk I/O. Also, *in theory*, multiple threads could be forked to analyse different parts of the input file in parrallel.
 
-However, *in practice*, multi-threads could NOT always guarantee a better performance due to contentions on pthread mutex for a given node (since the tsync_t implementation is not optimised for this application in the first place).
+4. However, *in practice*, multi-threads could NOT always guarantee a better performance due to contentions on pthread mutex for a given node (since the tsync_t implementation is not optimised for this application in the first place).
 
 
 #Test Results
