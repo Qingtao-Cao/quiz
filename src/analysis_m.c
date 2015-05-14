@@ -26,7 +26,11 @@ typedef struct thread {
 	/* The current thread */
 	pthread_t id;
 
-	/* Address of the first and the last byte in the overall data buffer */
+	/*
+	 * Point to the first and the last byte of current chunk of data
+	 * in the overall data buffer. In particular, the byte pointed to
+	 * by the end must be NULLIFIED for sake of strtok_r
+	 */
 	char *start, *end;
 
 	/* Point back to the parent data structure */
