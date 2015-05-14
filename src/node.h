@@ -1,8 +1,11 @@
-
 #ifndef _NODE_H
 #define _NODE_H
 
 #include "lib.h"
+
+#ifdef MULTI_THREADS
+#include "tsync.h"
+#endif
 
 /*
  * Descriptor of a node in the analysis tree
@@ -17,6 +20,10 @@ typedef struct node {
 	/* Pointers to the next alphabets of potential words */
 	struct node *children[AVAILABLE_CHARS];
 
+#ifdef MULTI_THREADS
+	/* Synchronisation method */
+	tsync_t sync;
+#endif
 } node_t;
 
 node_t *create_node(const char c);

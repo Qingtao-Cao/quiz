@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,8 +14,11 @@ node_t *create_node(const char c)
 	}
 
 	memset(node, 0, sizeof(node_t));
-
 	node->c = c;
+
+#ifdef MULTI_THREADS
+	tsync_init(&node->sync);
+#endif
 
 	return node;
 }
@@ -33,12 +35,16 @@ void destroy_tree(node_t *root)
 		destroy_tree(root->children[i]);
 	}
 
+#ifdef MULTI_THREADS
+	tsync_cleanup(&root->sync);
+#endif
+
 	free(root);
 }
 
 errcode_t setup_tree(node_t *root, const char *word)
 {
-	node_t *p;
+	node_t *p, *child;
 	int len, i, idx;
 	char c;
 
@@ -60,17 +66,44 @@ errcode_t setup_tree(node_t *root, const char *word)
 		}
 
 		idx = c - 'a';
+
+		if (p->children[idx] != NULL) {
+			p = p->children[idx];
+			continue;
+		}
+
+#ifdef MULTI_THREADS
+		tsync_writer_entry(&p->sync);
+#endif
+
 		if (!p->children[idx]) {
 			if (!(p->children[idx] = create_node(c))) {
+#ifdef MULTI_THREADS
+				tsync_writer_exit(&p->sync);
+#endif
 				return ERR_NO_MEM;
 			}
 		}
 
-		p = p->children[idx];
+		child = p->children[idx];
+
+#ifdef MULTI_THREADS
+		tsync_writer_exit(&p->sync);
+#endif
+
+		p = child;
 	}
+
+#ifdef MULTI_THREADS
+	tsync_writer_entry(&p->sync);
+#endif
 
 	/* update counter on the leaf node */
 	p->cnt++;
+
+#ifdef MULTI_THREADS
+	tsync_writer_exit(&p->sync);
+#endif
 
 	return 0;
 }
