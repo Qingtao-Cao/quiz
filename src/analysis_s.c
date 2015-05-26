@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 		/* Build up our tree from each token */
 		if ((token = strtok_r(buf, DELIMITER, &saveptr)) != NULL) {
 			do {
-				if ((ret = setup_tree(root, token)) > 0) {
+				if ((ret = setup_node(root, token)) > 0) {
 					goto mem_failed;
 				}
 			} while ((token = strtok_r(NULL, DELIMITER, &saveptr)) != NULL);
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
 
 	}
 
-	dump_tree(root, "");
+	dump_node(root, "");
 
 	ret = ERR_SUCCESS;
 
@@ -142,7 +142,7 @@ mem_failed:
 
 failed:
 	if (root) {
-		destroy_tree(root);
+		destroy_node(root);
 	}
 
 	if (buf) {

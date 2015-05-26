@@ -22,4 +22,5 @@ typedef enum {
 int is_delimiter(const char c);
 pid_t get_tid(void);
 
+int to_lowercase(char c);
 #endif	/* _LIB_H */

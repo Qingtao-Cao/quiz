@@ -28,4 +28,21 @@ int is_delimiter(const char c)
 	return 0;
 }
 
+/*
+ * Convert a character into lower case
+ * return -1 if it is not an alphabet
+ */
+int to_lowercase(const char c)
+{
+	int lc = c;
 
+	if (lc >= 'A' && lc <= 'Z') {
+		lc += 'a' - 'A';
+	}
+
+	if (lc < 'a' || c > 'z') {
+		return -1;
+	}
+
+	return lc;
+}

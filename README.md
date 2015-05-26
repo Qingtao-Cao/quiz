@@ -3,6 +3,7 @@
 To compile the single-thread implementation (for low mem scenario):
 
 	$ cd quiz
+	$ git checkout master
 	$ cmake .
 	$ VERBOSE=1 make
 
@@ -45,15 +46,87 @@ To check memory usage of this program:
 
 1. The usage of a word tree has reduced RAM consumption and boosted performance significantly;
 
-2. If RAM is limited, use the single thread implementation to read the content of the input file in an accumulated manner. The chunk size is also configurable;
+2. If RAM is limited, use the single thread implementation to read the content of the input file in an accumulated manner. The chunk size is also configurable via corresponding parameter on the command line;
 
-3. If RAM is sufficient, the performance could be further promoted by reducing disk I/O. Also, *in theory*, multiple threads could be forked to analyse different parts of the input file in parrallel.
+3. Whereas when RAM is sufficient, the performance could be further promoted by reducing disk I/O. Also, in theory, multiple threads could be forked to analyse different parts of the input file in parrallel.
 
-4. However, *in practice*, multi-threads could NOT always guarantee a better performance due to contentions on pthread mutex for a given node (since the tsync_t implementation is not optimised for this application in the first place).
-
+4. However, synchronisation among threads don't come without a cost. Experiments reveal that having *one and only one* mutex for the entire subtree as rooted by a particular alphabet can yield a much better performance than equipping each node with its own mutex, which might be desirable when scalability became a priority.
 
 #Test Results
 
+## Single-thread implementation
+
+	$ time build/analysis_s test/28M.txt > log_s
+	real	0m0.778s
+	user	0m0.735s
+	sys		0m0.040s
+
+## Multi-thread implementation (on master branch)
+
+	$ time build/analysis_m test/28M.txt 1 > log_m_1
+
+	real	0m0.918s
+	user	0m0.852s
+	sys		0m0.053s
+	
+	$ time build/analysis_m test/28M.txt 2 > log_m_2
+	
+	real	0m0.736s
+	user	0m1.042s
+	sys		0m0.138s
+	
+	$ time build/analysis_m test/28M.txt 3 > log_m_3
+	
+	real	0m0.659s
+	user	0m1.181s
+	sys		0m0.168s
+	
+	$ time build/analysis_m test/28M.txt 4 > log_m_4
+	
+	real	0m0.624s
+	user	0m1.298s
+	sys		0m0.239s
+	
+	$ time build/analysis_m test/28M.txt 5 > log_m_5
+	
+	real	0m0.626s
+	user	0m1.280s
+	sys		0m0.257s
+	
+	$ time build/analysis_m test/28M.txt 6 > log_m_6
+	
+	real	0m0.986s
+	user	0m2.108s
+	sys		0m0.615s
+	
+	$ time build/analysis_m test/28M.txt 7 > log_m_7
+	
+	real	0m0.953s
+	user	0m2.069s
+	sys		0m0.555s
+	
+	$ time build/analysis_m test/28M.txt 8 > log_m_8
+	
+	real	0m0.646s
+	user	0m1.284s
+	sys		0m0.298s
+	
+	$ time build/analysis_m test/28M.txt 9 > log_m_9
+	
+	real	0m0.629s
+	user	0m1.251s
+	sys		0m0.309s
+	
+	$ time build/analysis_m test/28M.txt 10 > log_m_10
+	
+	real	0m0.648s
+	user	0m1.283s
+	sys		0m0.313s
+
+As we can see, multi-thread implementation can further promote performance, but it may turn worse with the increasing contention on the mutex.
+
+## Multi-thread implementation (on devel branch)
+	
 	$ time build/analysis_m test/28M.txt 1 > log_m_1
 	real	0m1.177s
 	user	0m1.080s
@@ -78,16 +151,5 @@ To check memory usage of this program:
 	real	0m1.723s
 	user	0m3.122s
 	sys		0m0.930s
-	
-	$ time build/analysis_s test/28M.txt > log_s
-	real	0m0.778s
-	user	0m0.735s
-	sys		0m0.040s
-	
-	$ diff -uP log_m_1 log_m_2
-	$ diff -uP log_m_1 log_m_3
-	$ diff -uP log_m_1 log_m_4
-	$ diff -uP log_m_1 log_m_5
-	$
-	$ diff -uP log_s log_m_1
-	$ 
+
+As we can see, performance suffers if the granularity of synchronisation is too small.
