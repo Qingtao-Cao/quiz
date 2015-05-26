@@ -16,44 +16,78 @@ node_t *create_node(const char c)
 	memset(node, 0, sizeof(node_t));
 	node->c = c;
 
-#ifdef MULTI_THREADS
-	tsync_init(&node->sync);
-#endif
-
 	return node;
 }
 
-void destroy_tree(node_t *root)
+root_t *create_tree(const char c)
+{
+	root_t *root;
+
+	if (!(root = (root_t *)malloc(sizeof(root_t)))) {
+		printf("Failed to allocate a root node\n");
+		return NULL;
+	}
+
+	memset(root, 0, sizeof(root_t));
+
+	if (!(root->n = create_node(c))) {
+		printf("Failed to allocate a tree node for root\n");
+		free(root);
+		return NULL;
+	}
+
+	pthread_mutex_init(&root->mutex, NULL);
+	return root;
+}
+
+void destroy_node(node_t *node)
 {
 	int i;
 
-	if (!root) {
+	if (!node) {
 		return;
 	}
 
 	for (i = 0; i < AVAILABLE_CHARS; i++) {
-		destroy_tree(root->children[i]);
+		destroy_node(node->children[i]);
 	}
 
-#ifdef MULTI_THREADS
-	tsync_cleanup(&root->sync);
-#endif
+	free(node);
+}
+
+void destroy_tree(root_t *root)
+{
+	if (root->n) {
+		destroy_node(root->n);
+	}
+
+	pthread_mutex_destroy(&root->mutex);
 
 	free(root);
 }
 
-errcode_t setup_tree(node_t *root, const char *word)
+errcode_t setup_tree(root_t **roots, const char *word)
 {
-	node_t *p, *child;
+	root_t *root;
+	node_t *p;
 	int len, i, idx;
 	char c;
 
-	assert(root && word);
+	assert(roots && word && strlen(word) > 0);
 
-	p = root;
+	c = word[0];
+	if (c >= 'A' && c <= 'Z') {
+		c += 'a' - 'A';
+	}
+	if (c < 'a' || c > 'z') {
+		return 0;
+	}
+
+	root = roots[c - 'a'];
+
 	len = strlen(word);
 
-	for (i = 0; i < len; i++) {
+	for (i = 1, p = root->n; i < len; i++) {
 		c = word[i];
 
 		if (c >= 'A' && c <= 'Z') {
@@ -72,43 +106,27 @@ errcode_t setup_tree(node_t *root, const char *word)
 			continue;
 		}
 
-#ifdef MULTI_THREADS
-		tsync_writer_entry(&p->sync);
-#endif
-
+		pthread_mutex_lock(&root->mutex);
 		if (!p->children[idx]) {
 			if (!(p->children[idx] = create_node(c))) {
-#ifdef MULTI_THREADS
-				tsync_writer_exit(&p->sync);
-#endif
+				pthread_mutex_unlock(&root->mutex);
 				return ERR_NO_MEM;
 			}
 		}
+		pthread_mutex_unlock(&root->mutex);
 
-		child = p->children[idx];
-
-#ifdef MULTI_THREADS
-		tsync_writer_exit(&p->sync);
-#endif
-
-		p = child;
+		p = p->children[idx];
 	}
 
-#ifdef MULTI_THREADS
-	tsync_writer_entry(&p->sync);
-#endif
-
 	/* update counter on the leaf node */
+	pthread_mutex_lock(&root->mutex);
 	p->cnt++;
-
-#ifdef MULTI_THREADS
-	tsync_writer_exit(&p->sync);
-#endif
+	pthread_mutex_unlock(&root->mutex);
 
 	return 0;
 }
 
-void dump_tree(const node_t *node, char *path)
+void dump_node(const node_t *node, char *path)
 {
 	node_t *child;
 	char *path_new;
@@ -116,17 +134,11 @@ void dump_tree(const node_t *node, char *path)
 
 	assert (node && path);	/* path could point to an empty string but never NULL */
 
-	if (node->c == 0) {	/* root node */
-		if (!(path_new = strdup(path))) {
-			return;
-		}
-	} else {
-		if (!(path_new = (char *)malloc(strlen(path) + 2))) {
-			return;
-		}
-
-		sprintf(path_new, "%s%c", path, node->c);
+	if (!(path_new = (char *)malloc(strlen(path) + 2))) {
+		return;
 	}
+
+	sprintf(path_new, "%s%c", path, node->c);
 
 	if (node->cnt) {
 		printf("%s : %d\n", path_new, node->cnt);
@@ -137,8 +149,15 @@ void dump_tree(const node_t *node, char *path)
 			continue;
 		}
 
-		dump_tree(child, path_new);
+		dump_node(child, path_new);
 	}
 
 	free(path_new);
+}
+
+void dump_tree(root_t *root)
+{
+	assert(root);
+
+	dump_node(root->n, "");
 }

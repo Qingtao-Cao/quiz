@@ -1,11 +1,8 @@
 #ifndef _NODE_H
 #define _NODE_H
 
+#include <pthread.h>
 #include "lib.h"
-
-#ifdef MULTI_THREADS
-#include "tsync.h"
-#endif
 
 /*
  * Descriptor of a node in the analysis tree
@@ -19,16 +16,17 @@ typedef struct node {
 
 	/* Pointers to the next alphabets of potential words */
 	struct node *children[AVAILABLE_CHARS];
-
-#ifdef MULTI_THREADS
-	/* Synchronisation method */
-	tsync_t sync;
-#endif
 } node_t;
 
+typedef struct root {
+	node_t *n;
+	pthread_mutex_t mutex;
+} root_t;
+
 node_t *create_node(const char c);
-void destroy_tree(node_t *root);
-errcode_t setup_tree(node_t *root, const char *word);
-void dump_tree(const node_t *node, char *path);
+root_t *create_tree(const char c);
+void destroy_tree(root_t *root);
+errcode_t setup_tree(root_t **root, const char *word);
+void dump_tree(root_t *root);
 
 #endif	/* _NODE_H */

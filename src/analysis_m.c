@@ -26,7 +26,11 @@ typedef struct thread {
 	/* The current thread */
 	pthread_t id;
 
-	/* Address of the first and the last byte in the overall data buffer */
+	/*
+	 * Point to the first and the last byte of current chunk of data
+	 * in the overall data buffer. In particular, the byte pointed to
+	 * by the end must be NULLIFIED for sake of strtok_r
+	 */
 	char *start, *end;
 
 	/* Point back to the parent data structure */
@@ -43,12 +47,14 @@ typedef struct analysis {
 	/* The huge buffer containing all data to be analysed */
 	char *data;
 
-	/* The root of the overall tree built up by threads */
-	node_t *root;
+	/* The roots of the subtrees starting from a paticular letter */
+	root_t *roots[AVAILABLE_CHARS];
 } analysis_t;
 
 static void destroy_analysis(analysis_t *ana)
 {
+	int i;
+
 	if (!ana) {
 		return;
 	}
@@ -57,8 +63,8 @@ static void destroy_analysis(analysis_t *ana)
 		free(ana->data);
 	}
 
-	if (ana->root) {
-		destroy_tree(ana->root);
+	for (i = 0; i < AVAILABLE_CHARS; i ++) {
+		destroy_tree(ana->roots[i]);
 	}
 
 	if (ana->threads) {
@@ -75,17 +81,12 @@ static analysis_t *setup_analysis(const int threads_num, const int size)
 
 	if (!(ana = (analysis_t *)malloc(sizeof(analysis_t))) ||
 		!(ana->data = (char *)malloc(size + 1)) ||
-		!(ana->root = create_node(0)) ||
 		!(ana->threads = (thread_t *)malloc(sizeof(thread_t) * threads_num))) {
 		goto failed;
 	}
 
-	/*
-	 * For sake of performance, build up the first level subtree
-	 * to remove the bottle neck on the root node
-	 */
 	for (i = 0; i < AVAILABLE_CHARS; i++) {
-		if (!(ana->root->children[i] = create_node('a'+i))) {
+		if (!(ana->roots[i] = create_tree('a' + i))) {
 			goto failed;
 		}
 	}
@@ -113,7 +114,7 @@ static void *payload(void *arg)
 	/* Build up our tree from each token */
 	if ((token = strtok_r(current->start, DELIMITER, &saveptr)) != NULL) {
 		do {
-			if ((ret = setup_tree(current->parent->root, token)) > 0) {
+			if ((ret = setup_tree(current->parent->roots, token)) > 0) {
 				break;
 			}
 		} while ((token = strtok_r(NULL, DELIMITER, &saveptr)) != NULL);
@@ -219,7 +220,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	dump_tree(ana->root, "");
+	for (i = 0; i < AVAILABLE_CHARS; i++) {
+		dump_tree(ana->roots[i]);
+	}
 
 	ret = ERR_SUCCESS;
 
